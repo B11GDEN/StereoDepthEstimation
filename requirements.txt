@@ -2,3 +2,5 @@ opencv-python
 albumentations
 lightning
 scikit-learn
+wandb
+rich
