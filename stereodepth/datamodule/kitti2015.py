@@ -44,7 +44,7 @@ class KITTI2015Dataset(Dataset):
         """
         return len(self.file_list)
 
-    def __getitem__(self, idx: int) -> dict[str, tuple[np.ndarray | torch.Tensor]]:
+    def __getitem__(self, idx: int) -> dict[str, np.ndarray | torch.Tensor]:
         """
         Takes left, right, disp by index, applies augmentations to them.
 
@@ -71,7 +71,7 @@ class KITTI2015Dataset(Dataset):
         data = {
             "left": left,
             "right": right,
-            "disp": disp,
+            "disp": disp.unsqueeze(0),
         }
 
         return data
