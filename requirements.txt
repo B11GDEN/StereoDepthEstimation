@@ -1,0 +1,4 @@
+opencv-python
+albumentations
+lightning
+scikit-learn
