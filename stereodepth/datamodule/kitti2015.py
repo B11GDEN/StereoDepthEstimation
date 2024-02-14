@@ -79,8 +79,18 @@ class KITTI2015Dataset(Dataset):
 
 class KITTI2015DataModule(LightningDataModule):
     """
-    """
+    `LightningDataModule` for the KITTI2015 dataset.
 
+    Attributes:
+        data_train (Dataset | None): Training dataset
+        data_val (Dataset | None): Validation dataset
+
+    Methods:
+        __init__: Initialize the `KITTI2015DataModule` object
+        setup: load data, Split to train val
+        train_dataloader: Create and return the train dataloader
+        val_dataloader: Create and return the validation dataloader
+    """
     def __init__(
             self,
             data_root: str,
@@ -93,6 +103,18 @@ class KITTI2015DataModule(LightningDataModule):
             seed: int = 42,
     ) -> None:
         """
+        Initialize a `KITTI2015DataModule`.
+
+        Args:
+            data_root (str): Path to dataset directory
+            train_transforms (A.Compose | None): Albumentations train transformation, Defaults to `None`
+            val_transforms (A.Compose | None): Albumentations validation transformation, Defaults to `None`
+            train_val_split (tuple[float, float]): The train, validation split.
+                Defaults to `(0.9, 0.1)`.
+            batch_size (int): The batch size. Defaults to `8`.
+            num_workers (int): The number of workers. Defaults to `0`.
+            pin_memory (bool): Whether to pin memory. Defaults to `False`.
+            seed (int): Random seed. Defaults to `42`.
         """
         super().__init__()
 
@@ -106,6 +128,16 @@ class KITTI2015DataModule(LightningDataModule):
 
     def setup(self, stage: str | None = None) -> None:
         """
+        Load data. Set variables: `self.data_train`, `self.data_val`.
+
+        This method is called by Lightning before `trainer.fit()`, `trainer.validate()`, `trainer.test()`, and
+        `trainer.predict()`, so be careful not to execute things like random split twice! Also, it is called after
+        `self.prepare_data()` and there is a barrier in between which ensures that all the processes proceed to
+        `self.setup()` once the data is prepared and available for use.
+
+        Args:
+            stage (str | None): The stage to setup. Either `"fit"`, `"validate"`, `"test"`, or `"predict"`.
+                Defaults to ``None``.
         """
         # load and split datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
