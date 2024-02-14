@@ -20,8 +20,8 @@ class LitStereoDepthEst(LightningModule):
         Initialize a `LitStereoDepthEst`.
 
         Args:
-            net (torch.nn.Module):
-            loss (torch.nn.Module):
+            net (torch.nn.Module): net to perform stereo depth estimation task
+            loss (torch.nn.Module): loss function
             learning_rate (float): Initial learning rate, Defaults to `3e-4`
         """
         super().__init__()
