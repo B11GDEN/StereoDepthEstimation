@@ -37,8 +37,8 @@ def main():
 
     # Callbacks
     checkpoint_callback = ModelCheckpoint(
-        monitor='train_loss',
-        filename='{epoch}-{train_loss:.3f}',
+        monitor='val_epe',
+        filename='{epoch}-{val_epe:.3f}',
         save_top_k=1,
         mode='min',
         # save_weights_only=True,

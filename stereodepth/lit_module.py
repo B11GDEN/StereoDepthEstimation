@@ -2,7 +2,8 @@ import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from lightning import LightningModule
-from torchmetrics import Metric, MeanMetric
+from torchmetrics import Metric, MetricCollection
+from stereodepth.metrics import EPEMetric, RateMetric
 
 
 class LitStereoDepthEst(LightningModule):
@@ -36,6 +37,17 @@ class LitStereoDepthEst(LightningModule):
         # Need this variable for learning rate tuner
         self.learning_rate: float = learning_rate
 
+        # train and validation metrics
+        metric = MetricCollection(
+            {
+                "epe": EPEMetric(),
+                "rate_1": RateMetric(1.0),
+                "rate_3": RateMetric(3.0),
+            }
+        )
+        self.train_metric: MetricCollection = metric.clone(prefix="train_")
+        self.val_metric: MetricCollection = metric.clone(prefix="val_")
+
     def forward(self, left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
         """
         Forward pass
@@ -50,7 +62,7 @@ class LitStereoDepthEst(LightningModule):
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
-        Single training step. Compute prediction, loss and log them.
+        Single training step. Compute prediction, loss, metrics and log them.
 
         Args:
             batch (dict[str, torch.Tensor]): Batch output from dataloader.
@@ -59,32 +71,55 @@ class LitStereoDepthEst(LightningModule):
         Returns:
             loss (torch.Tensor): calculated loss
         """
-        left, right, disp = batch['left'], batch['right'], batch['disp']
+        left, right, target_disp = batch['left'], batch['right'], batch['disp']
 
+        # forward
         preds = self.forward(left, right)
-        losses = self.loss(preds, disp)
+
+        # calculate loss
+        losses = self.loss(preds, target_disp)
         train_loss = sum(losses.values()) / len(losses)
 
+        # log loss
         self.log_dict(losses, prog_bar=True)
         self.log('train_loss', train_loss, prog_bar=True)
 
+        # calculate metrics
+        mask = (target_disp < 192) & (target_disp > 1e-3)  # disparity mask for metrics
+        self.train_metric(preds["disp"], target_disp, mask)
+
         return train_loss
+
+    def on_train_epoch_end(self) -> None:
+        """
+        Log train metrics and reset
+        """
+        self.log_dict(self.train_metric.compute())
+        self.train_metric.reset()
 
     def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         """
-        Single validation step. Compute prediction, loss and log them.
+        Single validation step. Compute prediction, metrics and log them.
 
         Args:
             batch (dict[str, torch.Tensor]): Batch output from dataloader.
             batch_idx (int): number of batch
         """
-        # left, right, disp = batch['left'], batch['right'], batch['disp']
-        #
-        # preds = self.forward(left, right)
-        # loss = self.loss(preds, disp)
-        #
-        # self.log_dict(loss, prog_bar=True)
-        pass
+        left, right, target_disp = batch['left'], batch['right'], batch['disp']
+
+        # forward
+        preds = self.forward(left, right)
+
+        # calculate metrics
+        mask = (target_disp < 192) & (target_disp > 1e-3)  # disparity mask for metrics
+        self.val_metric(preds["disp"], target_disp, mask)
+
+    def on_validation_epoch_end(self) -> None:
+        """
+        Log validation metrics and reset
+        """
+        self.log_dict(self.val_metric.compute())
+        self.val_metric.reset()
 
     def configure_optimizers(self):
         """
