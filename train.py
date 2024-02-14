@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
@@ -43,20 +41,26 @@ def main():
         filename='{epoch}-{train_loss:.3f}',
         save_top_k=1,
         mode='min',
+        # save_weights_only=True,
     )
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     rich_progress = RichProgressBar()
 
+    # Logger
+    logger = WandbLogger(
+        project="sber-task",
+        name='test',
+    )
 
     # Trainer
     trainer = Trainer(
         check_val_every_n_epoch=1,
         log_every_n_steps=10,
         num_sanity_val_steps=0,
-        max_epochs=50,
+        max_epochs=100,
         # accumulate_grad_batches=config['accumulate_grad_batches'],
         callbacks=[rich_progress, lr_monitor, checkpoint_callback],
-        # logger=logger,
+        logger=logger,
         accelerator='gpu',
         devices=1,
     )
