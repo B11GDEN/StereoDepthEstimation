@@ -2,8 +2,8 @@ import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from lightning import LightningModule
-from torchmetrics import Metric, MetricCollection
-from stereodepth.metrics import EPEMetric, RateMetric
+from torchmetrics import MetricCollection
+from stereodepth.metrics import EPEMetric
 
 
 class LitStereoDepthEst(LightningModule):
@@ -60,8 +60,6 @@ class LitStereoDepthEst(LightningModule):
         metric = MetricCollection(
             {
                 "epe": EPEMetric(),
-                "rate_1": RateMetric(1.0),
-                "rate_3": RateMetric(3.0),
             }
         )
         self.train_metric: MetricCollection = metric.clone(prefix="train_")
