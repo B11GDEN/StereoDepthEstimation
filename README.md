@@ -7,8 +7,21 @@ conda activate stereo-depth
 # Установить pytorch с официального сайта https://pytorch.org
 pip install -r requirements.txt
 ```
-
-# Inference Example
+## Train
+Для тренировки используйте train.py. Подробнее о флагах смотри в parse_args
+```bash
+python3 train.py --batch-size 8 --max-epochs 100 --accelerator gpu --project sber-task --exp stereo_net
+```
+## Predict
+Скрипт для инференса
+```bash
+# --left - путь до левого изображения
+# --right - путь до правого изображения
+# --model - путь до весов модели, уже обученные веса есть в папке weights
+# --output - путь куда сохранится итоговая disparity map
+python3 predict.py --left imgs/left.png --right imgs/right.png --model weights/stereo_net.pt --output result_disp.png
+```
+## Inference Example
 Left Image
 ![Image alt](./imgs/left.png)
 Right Image
