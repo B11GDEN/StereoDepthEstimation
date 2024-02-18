@@ -9,11 +9,30 @@ from stereodepth.metrics import EPEMetric, RateMetric
 class LitStereoDepthEst(LightningModule):
     """
     `LightningModule` for stereo depth estimation task.
+
+    Implements training and validation logic.
+
+    Attributes:
+        model (torch.nn.Module): network for training, e.g. StereoNet
+        loss (torch.nn.Module): training loss, e.g. MultiScaleLoss
+        learning_rate (float): Initial learning rate, this attribute is also needed because of
+            Lightning Tuner to tune the value
+        train_metric (MetricCollection): train metrics to log in wandb
+        val_metric (MetricCollection): val metrics to log in wandb
+
+    Methods:
+        __init__: Initialize the `LitSegmenter` object
+        forward: Forward pass
+        training_step: Single training step on a batch of data
+        on_train_epoch_end: Lightning hook that is called when train epoch ends
+        validation_step: Single validation step on a batch of data
+        on_validation_epoch_end: Lightning hook that is called when validation epoch ends
+        configure_optimizers: Сonfigure optimizer nad sheduler
     """
 
     def __init__(
             self,
-            net: torch.nn.Module,
+            model: torch.nn.Module,
             loss: torch.nn.Module,
             learning_rate: float = 3e-4,
     ) -> None:
@@ -21,7 +40,7 @@ class LitStereoDepthEst(LightningModule):
         Initialize a `LitStereoDepthEst`.
 
         Args:
-            net (torch.nn.Module): net to perform stereo depth estimation task
+            model (torch.nn.Module): model to perform stereo depth estimation task
             loss (torch.nn.Module): loss function
             learning_rate (float): Initial learning rate, Defaults to `3e-4`
         """
@@ -29,9 +48,9 @@ class LitStereoDepthEst(LightningModule):
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False, ignore=['net', 'loss', 'learning_rate'])
+        self.save_hyperparameters(logger=False, ignore=['model', 'loss', 'learning_rate'])
 
-        self.net: torch.nn.Module = net
+        self.model: torch.nn.Module = model
         self.loss: torch.nn.Module = loss
 
         # Need this variable for learning rate tuner
@@ -58,7 +77,7 @@ class LitStereoDepthEst(LightningModule):
         Returns:
             output (torch.Tensor): output tensor
         """
-        return self.net(left, right)
+        return self.model(left, right)
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
@@ -71,13 +90,12 @@ class LitStereoDepthEst(LightningModule):
         Returns:
             loss (torch.Tensor): calculated loss
         """
-        left, right, target_disp = batch['left'], batch['right'], batch['disp']
 
         # forward
-        preds = self.forward(left, right)
+        preds = self.forward(batch['left'], batch['right'])
 
         # calculate loss
-        losses = self.loss(preds, target_disp)
+        losses = self.loss(preds, batch['disp'])
         train_loss = sum(losses.values()) / len(losses)
 
         # log loss
@@ -85,8 +103,7 @@ class LitStereoDepthEst(LightningModule):
         self.log('train_loss', train_loss, prog_bar=True)
 
         # calculate metrics
-        mask = (target_disp < 192) & (target_disp > 1e-3)  # disparity mask for metrics
-        self.train_metric(preds["disp"], target_disp, mask)
+        self.train_metric(preds['disp'], batch['disp'])
 
         return train_loss
 
@@ -105,14 +122,12 @@ class LitStereoDepthEst(LightningModule):
             batch (dict[str, torch.Tensor]): Batch output from dataloader.
             batch_idx (int): number of batch
         """
-        left, right, target_disp = batch['left'], batch['right'], batch['disp']
 
         # forward
-        preds = self.forward(left, right)
+        preds = self.forward(batch['left'], batch['right'])
 
         # calculate metrics
-        mask = (target_disp < 192) & (target_disp > 1e-3)  # disparity mask for metrics
-        self.val_metric(preds["disp"], target_disp, mask)
+        self.val_metric(preds['disp'], batch['disp'])
 
     def on_validation_epoch_end(self) -> None:
         """
@@ -128,7 +143,3 @@ class LitStereoDepthEst(LightningModule):
         optimizer = AdamW(params=self.trainer.model.parameters(), lr=self.learning_rate)
         sheduler = CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
         return [optimizer], [sheduler]
-
-
-if __name__ == '__main__':
-    x = 0
