@@ -1,49 +1,71 @@
 import cv2
+import argparse
 import torch
 import numpy as np
 from stereodepth.models import StereoNet
-from stereodepth.datamodule import KITTI2015DataModule
 
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="StereoDepth Prediction")
+
+    # input
+    parser.add_argument("--left", type=str, default="./imgs/left.png", help="path to left image")
+    parser.add_argument("--right", type=str, default="./imgs/right.png", help="path to right image")
+
+    # model
+    parser.add_argument("--model", type=str, default="./weights/stereo_net.pt", help="stereo_net weights")
+
+    # output
+    parser.add_argument("--output", type=str, default="result_disp.png", help="path to result disparity")
+
+    args = parser.parse_args()
+    return args
+
+
 def main():
-    weights = torch.load('sber-task/v3mmznl0/checkpoints/epoch=73-train_loss=0.763.ckpt')
+    args = parse_args()
+
+    # load model
+    weights = torch.load(args.model)
     state_dict = {}
     for k, v in weights['state_dict'].items():
-        if k.startswith('net'):
-            state_dict[k[4:]] = v
+        if k.startswith('model.'):
+            state_dict[k[6:]] = v
 
     model = StereoNet()
     model.load_state_dict(state_dict)
     model.eval().cuda()
 
+    # test transform
     transforms = A.Compose(
         [
-            # A.RandomCrop(height=300, width=600),
-            A.Normalize(),
+            A.Normalize(mean=0, std=1),
             ToTensorV2(),
         ],
-        additional_targets={'right': 'image', 'disp': 'mask'}
+        additional_targets={'right': 'image'}
     )
 
-    datamodule = KITTI2015DataModule(
-        data_root='datasets/KITTI2015',
-        train_transforms=transforms,
-        val_transforms=transforms,
-        batch_size=1,
-    )
+    # input images
+    left = cv2.imread(args.left)
+    right = cv2.imread(args.right)
 
-    datamodule.setup()
+    # inference
+    with torch.no_grad():
+        augment = transforms(image=left, right=right)
+        left, right = augment['image'], augment['right']
+        result = model(left.unsqueeze(0).cuda(), right.unsqueeze(0).cuda())
 
-    # with torch.no_grad():
-    for batch in datamodule.train_dataloader():
-        left, right = batch['left'], batch['right']
-        result = model(left.cuda(), right.cuda())
-        disp = (result['disp'][0, 0] / 192 * 255).detach().cpu().numpy().astype(np.uint8)
-        color_disp = cv2.applyColorMap(disp, cv2.COLORMAP_JET)
-        x = 0
+    # transform disparity map
+    disp = result['disp'][0, 0].cpu().numpy()
+    disp = (disp / 192 * 255).astype(np.uint8)
+    color_disp = cv2.applyColorMap(disp, cv2.COLORMAP_JET)
+    color_disp = cv2.cvtColor(color_disp, cv2.COLOR_BGR2RGB)
+
+    # save file
+    cv2.imwrite(args.output, color_disp)
 
 
 if __name__ == '__main__':
