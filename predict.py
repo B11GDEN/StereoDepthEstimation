@@ -12,11 +12,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="StereoDepth Prediction")
 
     # input
-    parser.add_argument("--left", type=str, default="./imgs/left.png", help="path to left image")
-    parser.add_argument("--right", type=str, default="./imgs/right.png", help="path to right image")
+    parser.add_argument("--left", type=str, default="imgs/left.png", help="path to left image")
+    parser.add_argument("--right", type=str, default="imgs/right.png", help="path to right image")
 
     # model
-    parser.add_argument("--model", type=str, default="./weights/stereo_net.pt", help="stereo_net weights")
+    parser.add_argument("--model", type=str, default="weights/stereo_net.pt", help="stereo_net weights")
 
     # output
     parser.add_argument("--output", type=str, default="result_disp.png", help="path to result disparity")
