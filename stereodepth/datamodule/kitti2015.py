@@ -23,7 +23,7 @@ class KITTI2015Dataset(Dataset):
     Methods:
         __init__: Initialize the `KITTI2015Dataset` object
         __len__: Return number of files
-        __getitem__: Return left_img, reight_img and disp by index
+        __getitem__: Return left_img, right_img and disp by index
 
     """
     def __init__(
@@ -55,6 +55,7 @@ class KITTI2015Dataset(Dataset):
             left (np.ndarray | torch.Tensor): augmented left image.
             right (np.ndarray | torch.Tensor): augmented right image.
             disp (np.ndarray | torch.Tensor): augmented disparity.
+            mask (np.ndarray | torch.Tensor): mask with correct disparity pixels.
         """
         left_path = self.data_root / "image_2" / self.file_list[idx]
         right_path = self.data_root / "image_3" / self.file_list[idx]
@@ -63,15 +64,19 @@ class KITTI2015Dataset(Dataset):
         left = cv2.imread(str(left_path))
         right = cv2.imread(str(right_path))
         disp = cv2.imread(str(disp_path), cv2.IMREAD_UNCHANGED).astype(np.float32) / 256
+        mask = (disp < 1) & (disp > 1e-3)
 
         if self.transforms:
-            augment = self.transforms(image=left, right=right, disp=disp)
+            augment = self.transforms(image=left, right=right, disp=disp, mask=mask)
+            # left, right = augment['image'], augment['right']
+            # disp, mask = augment['disp'], augment['mask']
             left, right, disp = augment['image'], augment['right'], augment['disp']
 
         data = {
             "left": left,
             "right": right,
             "disp": disp.unsqueeze(0),
+            # "mask": mask.unsqueeze(0),
         }
 
         return data
@@ -124,7 +129,6 @@ class KITTI2015DataModule(LightningDataModule):
 
         self.data_train: Dataset | None = None
         self.data_val: Dataset | None = None
-        self.data_test: Dataset | None = None
 
     def setup(self, stage: str | None = None) -> None:
         """
@@ -140,7 +144,7 @@ class KITTI2015DataModule(LightningDataModule):
                 Defaults to ``None``.
         """
         # load and split datasets only if not loaded already
-        if not self.data_train and not self.data_val and not self.data_test:
+        if not self.data_train and not self.data_val:
 
             data_root = Path(self.hparams.data_root)
 
@@ -199,7 +203,7 @@ class KITTI2015DataModule(LightningDataModule):
 if __name__ == "__main__":
     transforms = A.Compose(
         [
-            A.RandomCrop(height=300, width=600),
+            # A.RandomCrop(height=300, width=600),
             A.Normalize(),
             ToTensorV2(),
         ],
@@ -218,6 +222,6 @@ if __name__ == "__main__":
     disp = (result['disp'] / 192 * 255).cpu().numpy().astype(np.uint8)
     left, right = result['left'], result['right']
 
-    color_disp = cv2.applyColorMap(disp, cv2.COLORMAP_JET)
+    color_disp = cv2.applyColorMap(disp[0], cv2.COLORMAP_JET)
 
     x = 0
