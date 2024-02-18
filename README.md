@@ -1,5 +1,18 @@
 # StereoDepthEstimation
 
+## Task
+Задача Stereo Depth Estimation для робота дворецкого. Данных на домене лидарной сьемки внутри жилой квартиры я не нашел. 
+Выбрал в качестве датасета KITTI2015 (https://www.cvlibs.net/datasets/kitti/eval_scene_flow.php?benchmark=stereo) - задача
+Stereo Depth Estimation дорожной ситуации.
+При желании систему можно натренировать на домен внутри помещений.
+## Repository Structure
+Вся логика расположена в модуле stereodepth:
+* datamodule - модуль для lightning datamodule
+* losses - модуль для лосс функций
+* metrics - модуль для метрик
+* models - модуль для моделей
+
+Систему можно масштабировать. Например добавляя новые лоссы, модели и т. д. в соответствующие модули.
 ## Installation
 ```bash
 conda create -n stereo-depth python=3.10
